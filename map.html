@@ -8,11 +8,11 @@
   <style>
     html, body { margin: 0; height: 100%; font-family: sans-serif; }
     #app { display: flex; height: 100vh; overflow: hidden; }
-    #devicePane { width: 300px; background: #2e2e2e; color: white; padding: 10px; overflow-y: auto; }
-    #map { flex: 1; position: relative; }
+    #devicePane { width: 300px; background: #2e2e2e; color: white; padding: 10px; overflow-y: auto; z-index: 3; }
+    #map { flex: 1; position: relative; z-index: 1; }
     .device { border-bottom: 1px solid #555; padding: 5px; cursor: pointer; }
     .device input { width: 90%; background: transparent; color: white; border: none; border-bottom: 1px solid white; }
-    #bottomPane { position: absolute; bottom: 0; left: 0; right: 0; height: 33%; background: white; border-top: 2px solid #888; display: flex; flex-direction: column; }
+    #bottomPane { position: absolute; bottom: 0; left: 0; right: 0; height: 33%; background: white; border-top: 2px solid #888; display: flex; flex-direction: column; z-index: 2; }
     #dragBar { height: 10px; background: #ccc; cursor: ns-resize; }
     #flightSelector { margin: 5px; }
     #tableContainer { flex: 1; overflow: auto; }
@@ -60,28 +60,29 @@
     const map = L.map('map').setView([49.8373, -119.3744], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-    function fetchFileList() {
-      const apiUrl = `https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_PATH}`;
-      fetch(apiUrl)
-        .then(r => r.json())
-        .then(items => {
-          fileUrls = items
-            .filter(item => item.name.endsWith('.json'))
-            .map(item => item.download_url);
-          fileUrls.forEach(loadFile);
-          setInterval(pollUpdates, POLL_INTERVAL);
-        })
-        .catch(err => console.error('Error fetching file list:', err));
+    async function fetchFileList() {
+      try {
+        const res = await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_PATH}`);
+        const items = await res.json();
+        fileUrls = items
+          .filter(item => item.name.endsWith('.json'))
+          .map(item => item.download_url);
+        await Promise.all(fileUrls.map(url => loadFile(url)));
+        setInterval(pollUpdates, POLL_INTERVAL);
+      } catch (err) {
+        console.error('Error fetching file list:', err);
+      }
     }
 
-    function loadFile(url) {
-      fetch(url)
-        .then(r => r.json())
-        .then(json => {
-          json.features.forEach(f => processFeature(f));
-          buildDevicePane();
-        })
-        .catch(err => console.error('Error loading file:', url, err));
+    async function loadFile(url) {
+      try {
+        const res = await fetch(url);
+        const json = await res.json();
+        json.features.forEach(f => processFeature(f));
+        buildDevicePane();
+      } catch (err) {
+        console.error('Error loading file:', url, err);
+      }
     }
 
     function processFeature(f) {
@@ -91,7 +92,7 @@
       const timeMs = new Date(p.posTime).getTime();
       if (!devices[esn]) { devices[esn] = []; lastTimestamps[esn] = 0; }
       if (timeMs > lastTimestamps[esn]) {
-        const point = {
+        const pt = {
           time: p.posTime,
           lat: f.geometry.coordinates[1],
           lng: f.geometry.coordinates[0],
@@ -100,15 +101,14 @@
           event_type: p.event_type,
           unitId: p.unitId
         };
-        devices[esn].push(point);
+        devices[esn].push(pt);
         lastTimestamps[esn] = timeMs;
-        if (esn === selectedEsn) appendToMap(point);
+        if (esn === selectedEsn) appendToMap(pt);
       }
     }
 
     function pollUpdates() {
       fileUrls.forEach(url => loadFile(url));
-      buildDevicePane();
     }
 
     function getColor(pt) {
@@ -129,9 +129,9 @@
         input.value = last.unitId;
         input.onchange = e => last.unitId = e.target.value;
         div.appendChild(input);
-        div.innerHTML += `<div>Status: ${last.event_type}</div>`;
-        div.innerHTML += `<div>Lat: ${last.lat.toFixed(6)}, Lng: ${last.lng.toFixed(6)}</div>`;
-        div.innerHTML += `<div>Alt: ${last.alt}, Spd: ${last.spd}</div>`;
+        div.insertAdjacentHTML('beforeend', `<div>Status: ${last.event_type}</div>`);
+        div.insertAdjacentHTML('beforeend', `<div>Lat: ${last.lat.toFixed(6)}, Lng: ${last.lng.toFixed(6)}</div>`);
+        div.insertAdjacentHTML('beforeend', `<div>Alt: ${last.alt}, Spd: ${last.spd}</div>`);
         div.onclick = () => selectDevice(esn);
         pane.appendChild(div);
       });
