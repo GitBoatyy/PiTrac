@@ -49,178 +49,84 @@
     const GH_REPO = 'PiTrac';
     const GH_PATH = 'data';
     const POLL_INTERVAL = 10000;
-
-    let devices = {},
-        lastTimestamps = {},
-        markers = {},
-        polylines = {},
-        selectedEsn = null,
-        fileUrls = [];
-
+    let devices = {}, lastTimestamps = {}, markers = {}, polylines = {}, selectedEsn = null, fileUrls = [];
     const map = L.map('map').setView([49.8373, -119.3744], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    document.getElementById('flightSelector').addEventListener('change', () => {
+      if (selectedEsn) updateFlightTable(devices[selectedEsn]);
+    });
 
     async function fetchFileList() {
       try {
         const res = await fetch(`https://api.github.com/repos/${GH_USER}/${GH_REPO}/contents/${GH_PATH}`);
         const items = await res.json();
-        fileUrls = items
-          .filter(item => item.name.endsWith('.json'))
-          .map(item => item.download_url);
-        await Promise.all(fileUrls.map(url => loadFile(url)));
+        fileUrls = items.filter(item => item.name.endsWith('.json')).map(item => item.download_url);
+        await Promise.all(fileUrls.map(loadFile));
         setInterval(pollUpdates, POLL_INTERVAL);
-      } catch (err) {
-        console.error('Error fetching file list:', err);
-      }
+      } catch (err) { console.error(err); }
     }
-
     async function loadFile(url) {
       try {
-        const res = await fetch(url);
-        const json = await res.json();
-        json.features.forEach(f => processFeature(f));
-        buildDevicePane();
-      } catch (err) {
-        console.error('Error loading file:', url, err);
-      }
+        const json = await (await fetch(url)).json();
+        json.features.forEach(processFeature);
+        if (!selectedEsn) buildDevicePane();
+      } catch (e) { console.error(e); }
     }
-
     function processFeature(f) {
-      const p = f.properties;
-      if (p.event_type === 'Position Report') return;
-      const esn = p.esn;
-      const timeMs = new Date(p.posTime).getTime();
-      if (!devices[esn]) { devices[esn] = []; lastTimestamps[esn] = 0; }
+      const p = f.properties; if (p.event_type==='Position Report') return;
+      const esn = p.esn; const timeMs = new Date(p.posTime).getTime();
+      if (!devices[esn]) { devices[esn]=[]; lastTimestamps[esn]=0; }
       if (timeMs > lastTimestamps[esn]) {
-        const pt = {
-          time: p.posTime,
-          lat: f.geometry.coordinates[1],
-          lng: f.geometry.coordinates[0],
-          alt: f.geometry.coordinates[2],
-          spd: p.spd,
-          event_type: p.event_type,
-          unitId: p.unitId
-        };
-        devices[esn].push(pt);
-        lastTimestamps[esn] = timeMs;
-        if (esn === selectedEsn) appendToMap(pt);
+        const pt={ time:p.posTime, lat:f.geometry.coordinates[1], lng:f.geometry.coordinates[0], alt:f.geometry.coordinates[2], spd:p.spd, event_type:p.event_type, unitId:p.unitId };
+        devices[esn].push(pt); lastTimestamps[esn]=timeMs;
+        if (esn===selectedEsn) appendToMap(pt);
       }
     }
-
-    function pollUpdates() {
-      fileUrls.forEach(url => loadFile(url));
-    }
-
-    function getColor(pt) {
-      const age = Date.now() - new Date(pt.time).getTime();
-      if (age > 5 * 60 * 1000) return 'black';
-      return pt.event_type === 'MOVING' ? 'blue' : 'brown';
-    }
-
-    function buildDevicePane() {
-      const pane = document.getElementById('devicePane');
-      pane.innerHTML = '';
-      Object.keys(devices).forEach(esn => {
-        const arr = devices[esn];
-        if (!arr.length) return;
-        const last = arr[arr.length - 1];
-        const div = document.createElement('div'); div.className = 'device';
-        const input = document.createElement('input');
-        input.value = last.unitId;
-        input.onchange = e => last.unitId = e.target.value;
-        div.appendChild(input);
-        div.insertAdjacentHTML('beforeend', `<div>Status: ${last.event_type}</div>`);
-        div.insertAdjacentHTML('beforeend', `<div>Lat: ${last.lat.toFixed(6)}, Lng: ${last.lng.toFixed(6)}</div>`);
-        div.insertAdjacentHTML('beforeend', `<div>Alt: ${last.alt}, Spd: ${last.spd}</div>`);
-        div.onclick = () => selectDevice(esn);
-        pane.appendChild(div);
+    function pollUpdates() { fileUrls.forEach(loadFile); }
+    function getColor(pt){ const age=Date.now()-new Date(pt.time).getTime(); if(age>5*60*1000) return 'black'; return pt.event_type==='MOVING'?'blue':'brown'; }
+    function buildDevicePane(){
+      const pane=document.getElementById('devicePane'); pane.innerHTML='';
+      Object.keys(devices).forEach(esn=>{
+        const arr=devices[esn]; if(!arr.length) return; const last=arr[arr.length-1];
+        const ageMin=Math.floor((Date.now()-new Date(last.time))/60000);
+        const div=document.createElement('div'); div.className='device';
+        // Tooltip on hover
+        div.title = `${last.unitId}
+Status: ${last.event_type}
+Lat: ${last.lat.toFixed(6)}, Lng: ${last.lng.toFixed(6)}
+Alt: ${last.alt}, Spd: ${last.spd}`;
+        const inp=document.createElement('input'); inp.value=last.unitId; inp.onchange=e=>last.unitId=e.target.value; div.appendChild(inp);
+        div.insertAdjacentHTML('beforeend',`<div>Status: ${last.event_type}</div><div>Lat: ${last.lat.toFixed(6)}, Lng: ${last.lng.toFixed(6)}</div><div>Alt: ${last.alt}, Spd: ${last.spd}</div><div>Last report: ${ageMin} min ago</div>`);
+        div.onclick=()=>selectDevice(esn); pane.appendChild(div);
       });
-      if (!selectedEsn) selectedEsn = Object.keys(devices)[0];
-      if (selectedEsn) selectDevice(selectedEsn);
+      if(!selectedEsn) selectedEsn=Object.keys(devices)[0]; if(selectedEsn) selectDevice(selectedEsn);
     }
-
-    function selectDevice(esn) {
-      selectedEsn = esn;
-      clearMap();
-      devices[esn].forEach(pt => appendToMap(pt, false));
-      fitMapTo(esn);
-      updateFlightTable(devices[esn]);
-    }
-
-    function clearMap() {
-      Object.values(markers).forEach(m => map.removeLayer(m));
-      Object.values(polylines).flat().forEach(pl => map.removeLayer(pl));
-      markers = {}; polylines = {};
-    }
-
-    function appendToMap(pt, pan = true) {
-      if (!polylines[selectedEsn]) polylines[selectedEsn] = [];
-      const arr = devices[selectedEsn];
-      if (arr.length > 1) {
-        const a = arr[arr.length - 2], b = arr[arr.length - 1];
-        const line = L.polyline([[a.lat, a.lng], [b.lat, b.lng]], { color: getColor(b), weight: 3 }).addTo(map);
-        polylines[selectedEsn].push(line);
+    function selectDevice(esn){ selectedEsn=esn; clearMap(); devices[esn].forEach(pt=>appendToMap(pt,false)); fitMapTo(esn); updateFlightTable(devices[esn]); }
+    function clearMap(){ Object.values(markers).forEach(m=>map.removeLayer(m)); Object.values(polylines).flat().forEach(pl=>map.removeLayer(pl)); markers={}; polylines={}; }
+    function appendToMap(pt, pan=true){ if(!polylines[selectedEsn]) polylines[selectedEsn]=[];
+      const arr=devices[selectedEsn]; if(arr.length>1){ const a=arr[arr.length-2],b=arr[arr.length-1]; const line=L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:getColor(b),weight:3}).addTo(map); polylines[selectedEsn].push(line);} 
+      if(markers[selectedEsn]) map.removeLayer(markers[selectedEsn]); const last=arr[arr.length-1]; const icon=L.divIcon({html:`<div style="font-size:24px;color:${getColor(last)}">✈️</div>`}); markers[selectedEsn]=L.marker([last.lat,last.lng],{icon}).addTo(map); if(pan) map.panTo([last.lat,last.lng]); }
+    function fitMapTo(esn){ const group=[]; (polylines[esn]||[]).forEach(pl=>group.push(pl)); if(markers[esn]) group.push(markers[esn]); if(group.length) map.fitBounds(L.featureGroup(group).getBounds()); }
+    function updateFlightTable(arr){
+      const filter=document.getElementById('flightSelector').value;
+      let data;
+      if(['2','4','current'].includes(filter)){
+        const segs=[]; let cur=[];
+        arr.forEach(p=>{ if(p.event_type==='POWER ON'&&cur.length){segs.push(cur);cur=[];} cur.push(p); }); if(cur.length) segs.push(cur);
+        if(filter==='current') data=segs.slice(-1)[0]||[];
+        else data=[].concat(...segs.slice(-parseInt(filter)));
+      } else {
+        const now=Date.now(); const days={today:1,'2days':2,'7days':7}[filter];
+        data=arr.filter(p=> now-new Date(p.time)<=days*24*3600*1000);
       }
-      if (markers[selectedEsn]) map.removeLayer(markers[selectedEsn]);
-      const last = arr[arr.length - 1];
-      const icon = L.divIcon({ html: `<div style="font-size:24px;color:${getColor(last)}">✈️</div>` });
-      markers[selectedEsn] = L.marker([last.lat, last.lng], { icon }).addTo(map);
-      if (pan) map.panTo([last.lat, last.lng]);
+      const cols=['time','lat','lng','alt','spd','event_type'];
+      const head=document.querySelector('#flightTable thead tr'); head.innerHTML=''; cols.forEach(c=>{const th=document.createElement('th'); th.textContent=c; th.className='sortable'; th.onclick=()=>sortTable(c); head.appendChild(th);});
+      const body=document.querySelector('#flightTable tbody'); body.innerHTML='';
+      data.slice().reverse().forEach(p=>{ const tr=document.createElement('tr'); cols.forEach(c=>{ const td=document.createElement('td'); td.textContent= c==='lat'?p.lat.toFixed(6): c==='lng'?p.lng.toFixed(6): c==='alt'?p.alt: c==='time'?new Date(p.time).toLocaleString():p[c]; tr.appendChild(td);} ); body.appendChild(tr);} );
     }
-
-    function fitMapTo(esn) {
-      const group = [];
-      (polylines[esn] || []).forEach(pl => group.push(pl));
-      if (markers[esn]) group.push(markers[esn]);
-      if (group.length) map.fitBounds(L.featureGroup(group).getBounds());
-    }
-
-    function updateFlightTable(arr) {
-      const cols = ['time', 'lat', 'lng', 'alt', 'spd', 'event_type'];
-      const head = document.querySelector('#flightTable thead tr'); head.innerHTML = '';
-      cols.forEach(c => {
-        const th = document.createElement('th'); th.textContent = c; th.className = 'sortable';
-        th.onclick = () => sortTable(c);
-        head.appendChild(th);
-      });
-      const body = document.querySelector('#flightTable tbody'); body.innerHTML = '';
-      arr.slice().reverse().forEach(p => {
-        const tr = document.createElement('tr');
-        cols.forEach(c => {
-          const td = document.createElement('td');
-          td.textContent =
-            c === 'lat' ? p.lat.toFixed(6) :
-            c === 'lng' ? p.lng.toFixed(6) :
-            c === 'alt' ? p.alt :
-            c === 'time' ? new Date(p.time).toLocaleString() :
-            p[c];
-          tr.appendChild(td);
-        });
-        body.appendChild(tr);
-      });
-    }
-
-    function sortTable(col) {
-      const body = document.querySelector('#flightTable tbody');
-      const rows = Array.from(body.rows);
-      const idx = Array.from(body.parentNode.previousElementSibling.children).findIndex(th => th.textContent === col);
-      const asc = !body.asc; body.asc = asc;
-      rows.sort((a, b) => asc
-        ? a.cells[idx].textContent.localeCompare(b.cells[idx].textContent, { numeric: true })
-        : b.cells[idx].textContent.localeCompare(a.cells[idx].textContent, { numeric: true }));
-      body.innerHTML = '';
-      rows.forEach(r => body.appendChild(r));
-    }
-
-    // Bottom pane resize
-    const drag = document.getElementById('dragBar'); let dragging = false;
-    drag.onmousedown = () => dragging = true;
-    document.onmouseup = () => dragging = false;
-    document.onmousemove = e => {
-      if (dragging) document.getElementById('bottomPane').style.height = `${window.innerHeight - e.clientY}px`;
-    };
-
-    // Initialize
+    function sortTable(col){ const body=document.querySelector('#flightTable tbody'); const rows=Array.from(body.rows); const idx=Array.from(body.parentNode.previousElementSibling.children).findIndex(th=>th.textContent===col); const asc=!body.asc; body.asc=asc; rows.sort((a,b)=> asc? a.cells[idx].textContent.localeCompare(b.cells[idx].textContent,{numeric:true}): b.cells[idx].textContent.localeCompare(a.cells[idx].textContent,{numeric:true})); body.innerHTML=''; rows.forEach(r=>body.appendChild(r)); }
+    const drag=document.getElementById('dragBar'); let dragging=false; drag.onmousedown=()=>dragging=true; document.onmouseup=()=>dragging=false; document.onmousemove=e=>{ if(dragging) document.getElementById('bottomPane').style.height=`${window.innerHeight-e.clientY}px`; };
     fetchFileList();
   </script>
 </body>
