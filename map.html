@@ -81,7 +81,8 @@
     }
     async function loadFile(url){ try{
         const json = await (await fetch(url)).json();
-        json.features.forEach(processFeature);
+        // Sort features by timestamp to ensure chronological order
+        json.features.slice().sort((a,b)=>new Date(a.properties.posTime)-new Date(b.properties.posTime)).forEach(processFeature);
         if(!selectedEsn) buildDevicePane();
       } catch(e){console.error(e)} }
     function processFeature(f){
@@ -89,7 +90,7 @@
       const esn=p.esn; const t=new Date(p.posTime).getTime();
       devices[esn]||(devices[esn]=[]), lastTimestamps[esn]||(lastTimestamps[esn]=0);
       if(t>lastTimestamps[esn]){
-        devices[esn].push({ esn, time:p.posTime, lat:+f.geometry.coordinates[1].toFixed(2), lng:+f.geometry.coordinates[0].toFixed(2), alt:p.geometry?f.geometry.coordinates[2]:p.alt, spd:p.spd, event_type:p.event_type });
+        devices[esn].push({ esn, time:p.posTime, lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0], alt:p.geometry?f.geometry.coordinates[2]:p.alt, spd:p.spd, event_type:p.event_type });
         lastTimestamps[esn]=t; selectedEsn===esn&&appendToMap(devices[esn].slice(-1)[0]);
       }
     }
@@ -123,7 +124,7 @@
         data=filter==='current'?segs.slice(-1)[0]||[]:[].concat(...segs.slice(-parseInt(filter)));
       } else { const now=Date.now();const d={today:1,'2days':2,'7days':7}[filter];data=arr.filter(p=>now-new Date(p.time)<=d*24*3600*1000);}      
       const head=document.querySelector('#flightTable thead tr');head.innerHTML='';visibleFields.forEach(f=>{const th=document.createElement('th');th.textContent=fieldLabels[f]||f;th.className='sortable';th.onclick=()=>sortTable(f);head.appendChild(th);});
-      const body=document.querySelector('#flightTable tbody');body.innerHTML='';data.slice().reverse().forEach(p=>{const tr=document.createElement('tr');visibleFields.forEach(f=>{const td=document.createElement('td');td.textContent=f==='lat'?p.lat.toFixed(2):f==='lng'?p.lng.toFixed(2):p[f];tr.appendChild(td);});body.appendChild(tr);});
+      const body=document.querySelector('#flightTable tbody');body.innerHTML='';data.slice().reverse().forEach(p=>{const tr=document.createElement('tr');visibleFields.forEach(f=>{const td=document.createElement('td');td.textContent = f==='lat'?p.lat.toFixed(4):f==='lng'?p.lng.toFixed(4):p[f];tr.appendChild(td);});body.appendChild(tr);});
     }
     function sortTable(col){const body=document.querySelector('#flightTable tbody');const rows=Array.from(body.rows);const idx=visibleFields.indexOf(col);const asc=!body.asc;body.asc=asc;rows.sort((a,b)=>asc?a.cells[idx].textContent.localeCompare(b.cells[idx].textContent,{numeric:true}):b.cells[idx].textContent.localeCompare(a.cells[idx].textContent,{numeric:true}));body.innerHTML='';rows.forEach(r=>body.appendChild(r));}
     const drag=document.getElementById('dragBar');let dragging=false;drag.onmousedown=()=>dragging=true;document.onmouseup=()=>dragging=false;document.onmousemove=e=>{dragging&&(document.getElementById('bottomPane').style.height=`${window.innerHeight-e.clientY}px`);};
