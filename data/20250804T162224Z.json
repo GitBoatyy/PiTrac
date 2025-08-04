@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "dataInfo": [
+    {
+      "affVer": "json 1.0",
+      "provider": "SKYTRAC",
+      "rptTime": "2025-08-04T16:22:24.544514Z",
+      "sysId": "skytrac-pi"
+    }
+  ],
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "rpt": "pos",
+        "esn": "862636055107161",
+        "unitId": "SKYTRAC_UNIT",
+        "cog": 159,
+        "spd": 0,
+        "src": "GPS",
+        "fix": "2D",
+        "pdop": null,
+        "posTime": "2025-08-04T16:21:55Z",
+        "dataCtrTime": "2025-08-04T16:22:24.548104Z",
+        "ctrId": "skytrac-pi",
+        "event_code": 1,
+        "event_type": "POWER ON",
+        "extra_data": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.37455343333333,
+          49.83725055,
+          549.8
+        ]
+      }
+    }
+  ]
+}
