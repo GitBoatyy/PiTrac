@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Flight Following</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    html, body { margin: 0; height: 100%; font-family: sans-serif; }
+    #app { display: flex; height: 100vh; overflow: hidden; }
+    #devicePane { width: 300px; background: #2e2e2e; color: white; padding: 10px; overflow-y: auto; }
+    #map { flex: 1; position: relative; }
+    .device { border-bottom: 1px solid #555; padding: 5px; }
+    .device input { width: 90%; background: transparent; color: white; border: none; border-bottom: 1px solid white; }
+    #bottomPane { position: absolute; bottom: 0; left: 0; right: 0; height: 33%; background: white; border-top: 2px solid #888; resize: vertical; overflow: auto; }
+    #dragBar { height: 10px; background: #ccc; cursor: ns-resize; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #aaa; padding: 4px; text-align: left; }
+    th.sortable:hover { cursor: pointer; background: #eee; }
+    #flightSelector { margin: 10px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="devicePane"></div>
+    <div id="map"></div>
+    <div id="bottomPane">
+      <div id="dragBar"></div>
+      <select id="flightSelector">
+        <option>Current Flight</option>
+        <option>Last 2 Flights</option>
+        <option>Last 4 Flights</option>
+        <option>Today</option>
+        <option>Last 2 Days</option>
+        <option>Last 7 Days</option>
+      </select>
+      <table id="flightTable">
+        <thead><tr></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([49.8373, -119.3744], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    let devices = {}, lastPositions = {}, localNames = JSON.parse(localStorage.getItem('deviceNames')||'{}');
+
+    fetch('20250803T235004Z.json').then(r=>r.json()).then(json=>init(json.features));
+
+    function getColor(pt){
+      const now = Date.now();
+      if(now - new Date(pt.time) > 5*60*1000) return 'black';
+      if(pt.event_type==='MOVING') return 'blue';
+      // POWER ON or STATIONARY
+      return 'brown';
+    }
+
+    function init(features){
+      features.forEach(f=>{
+        const p=f.properties; const coords=f.geometry.coordinates;
+        if(!devices[p.esn]) devices[p.esn]=[];
+        devices[p.esn].push({ time:p.posTime, lat:coords[1], lng:coords[0], alt:coords[2], spd:p.spd, event_type:p.event_type, unitId:p.unitId });
+      });
+      Object.values(devices).forEach(arr=>arr.sort((a,b)=>new Date(a.time)-new Date(b.time)));
+      buildDevicePane();
+    }
+
+    function buildDevicePane(){
+      const pane=document.getElementById('devicePane'); pane.innerHTML='';
+      Object.keys(devices).forEach(esn=>{
+        const arr=devices[esn], last=arr[arr.length-1]; lastPositions[esn]=last;
+        const div=document.createElement('div'); div.className='device';
+        const input=document.createElement('input'); input.value=localNames[esn]||last.unitId;
+        input.onchange=()=>{ localNames[esn]=input.value; localStorage.setItem('deviceNames',JSON.stringify(localNames)); };
+        div.appendChild(input);
+        div.innerHTML += `<br>Status: ${last.event_type}<br>Lat: ${last.lat.toFixed(6)}<br>Lng: ${last.lng.toFixed(6)}<br>Alt: ${last.alt} m<br>Spd: ${last.spd} m/s`;
+        div.onclick=()=>selectDevice(esn);
+        pane.appendChild(div);
+      });
+      selectDevice(Object.keys(devices)[0]);
+    }
+
+    let currentLayers = [];
+    function selectDevice(esn){
+      // clear
+      currentLayers.forEach(l=>map.removeLayer(l)); currentLayers=[];
+      const arr=devices[esn];
+      // draw segments
+      for(let i=1;i<arr.length;i++){
+        const a=arr[i-1], b=arr[i]; const color=getColor(b);
+        const seg=L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color,weight:3}); seg.addTo(map); currentLayers.push(seg);
+      }
+      // add airplane icon marker at last
+      const last=arr[arr.length-1], clr=getColor(last);
+      const planeIcon=L.divIcon({ html:`<div style="transform: rotate(0deg); font-size:24px; color:${clr};">✈️</div>`, className:'' });
+      const m=L.marker([last.lat,last.lng],{icon:planeIcon}).addTo(map);
+      currentLayers.push(m);
+      map.fitBounds(L.featureGroup(currentLayers).getBounds());
+      updateFlightTable(arr);
+    }
+
+    function updateFlightTable(arr){
+      const cols=['time','lat','lng','alt','spd','event_type'];
+      const head=document.querySelector('#flightTable thead tr'); head.innerHTML=''; cols.forEach(c=>{const th=document.createElement('th'); th.textContent=c; th.className='sortable'; th.onclick=()=>sortTable(c); head.appendChild(th);});
+      const body=document.querySelector('#flightTable tbody'); body.innerHTML='';
+      arr.slice().reverse().forEach(p=>{const tr=document.createElement('tr'); cols.forEach(c=>{const td=document.createElement('td'); td.textContent=c==='lat'?p.lat.toFixed(6):c==='lng'?p.lng.toFixed(6):c==='alt'?p.alt:p[c]; tr.appendChild(td);}); body.appendChild(tr);});
+    }
+
+    function sortTable(col){ const body=document.querySelector('#flightTable tbody'); const rows=Array.from(body.rows); const idx=Array.from(body.parentNode.previousElementSibling.children).findIndex(th=>th.textContent===col); const asc=body.asc= !body.asc; rows.sort((a,b)=> asc? a.cells[idx].textContent.localeCompare(b.cells[idx].textContent,{numeric:true}): b.cells[idx].textContent.localeCompare(a.cells[idx].textContent,{numeric:true})); body.innerHTML=''; rows.forEach(r=>body.appendChild(r)); }
+
+    // bottom pane drag
+    const drag=document.getElementById('dragBar'); let dr=false;
+    drag.onmousedown=_=>dr=true; document.onmouseup=_=>dr=false;
+    document.onmousemove=e=>{ if(dr){ document.getElementById('bottomPane').style.height=`${window.innerHeight-e.clientY}px`; }};
+  </script>
+</body>
+</html>
