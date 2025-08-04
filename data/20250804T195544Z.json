@@ -683,6 +683,141 @@
           557.6
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "rpt": "pos",
+        "esn": "862636055107161",
+        "unitId": "SKYTRAC_UNIT",
+        "cog": 0,
+        "spd": 0,
+        "src": "GPS",
+        "fix": "2D",
+        "pdop": 1.0,
+        "posTime": "2025-08-04T20:05:10Z",
+        "dataCtrTime": "2025-08-04T20:05:04.978530Z",
+        "ctrId": "skytrac-pi",
+        "event_code": 0,
+        "event_type": "Position Report",
+        "extra_data": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.37447111666667,
+          49.8372878,
+          557.7
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "rpt": "pos",
+        "esn": "862636055107161",
+        "unitId": "SKYTRAC_UNIT",
+        "cog": 0,
+        "spd": 0,
+        "src": "GPS",
+        "fix": "2D",
+        "pdop": null,
+        "posTime": "2025-08-04T20:05:25Z",
+        "dataCtrTime": "2025-08-04T20:05:20.967508Z",
+        "ctrId": "skytrac-pi",
+        "event_code": 0,
+        "event_type": "Position Report",
+        "extra_data": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.37447071666666,
+          49.83728766666667,
+          557.8
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "rpt": "pos",
+        "esn": "862636055107161",
+        "unitId": "SKYTRAC_UNIT",
+        "cog": 0,
+        "spd": 0,
+        "src": "GPS",
+        "fix": "2D",
+        "pdop": null,
+        "posTime": "2025-08-04T20:05:41Z",
+        "dataCtrTime": "2025-08-04T20:05:35.982730Z",
+        "ctrId": "skytrac-pi",
+        "event_code": 0,
+        "event_type": "Position Report",
+        "extra_data": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.37447021666667,
+          49.8372869,
+          557.7
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "rpt": "pos",
+        "esn": "862636055107161",
+        "unitId": "SKYTRAC_UNIT",
+        "cog": 0,
+        "spd": 0,
+        "src": "GPS",
+        "fix": "2D",
+        "pdop": null,
+        "posTime": "2025-08-04T20:05:56Z",
+        "dataCtrTime": "2025-08-04T20:05:51.965408Z",
+        "ctrId": "skytrac-pi",
+        "event_code": 0,
+        "event_type": "Position Report",
+        "extra_data": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.37447025,
+          49.8372868,
+          557.7
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "rpt": "pos",
+        "esn": "862636055107161",
+        "unitId": "SKYTRAC_UNIT",
+        "cog": 0,
+        "spd": 0,
+        "src": "GPS",
+        "fix": "2D",
+        "pdop": null,
+        "posTime": "2025-08-04T20:06:12Z",
+        "dataCtrTime": "2025-08-04T20:06:06.985814Z",
+        "ctrId": "skytrac-pi",
+        "event_code": 0,
+        "event_type": "Position Report",
+        "extra_data": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.37447031666666,
+          49.83728775,
+          557.8
+        ]
+      }
     }
   ]
 }
