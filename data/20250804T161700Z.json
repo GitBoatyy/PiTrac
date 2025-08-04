@@ -35,6 +35,33 @@
           0.0
         ]
       }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "rpt": "pos",
+        "esn": "862636055107161",
+        "unitId": "SKYTRAC_UNIT",
+        "cog": 159,
+        "spd": 2,
+        "src": "GPS",
+        "fix": "2D",
+        "pdop": null,
+        "posTime": "2025-08-04T16:18:23Z",
+        "dataCtrTime": "2025-08-04T16:18:30.998294Z",
+        "ctrId": "skytrac-pi",
+        "event_code": 3,
+        "event_type": "MOVING",
+        "extra_data": ""
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -119.37452201666666,
+          49.8372074,
+          553.3
+        ]
+      }
     }
   ]
 }
